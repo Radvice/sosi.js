@@ -4,9 +4,10 @@ if (!(typeof require == "undefined")) { /* we are running inside nodejs */
 
     var parser = new SOSI.Parser();
 
-    if (process.argv.length < 4) {
-        util.print("\nusage: nodejs SOSI.js.js format infile.sos > outfile\n\n"
+    if (process.argv.length < 6) {
+        util.print("\nusage: nodejs SOSI.js.js format source_projection target_projection infile.sos > outfile\n\n"
             + "where: format     : one of [" + parser.getFormats() + "]\n"
+            + "       source_projection target_projection : projections passed directly to proj4"
             + "       infile.sos : a file in SOSI format\n"
             + "       outfile    : an output file name, omit for stdout\n\n"
             );
@@ -14,10 +15,12 @@ if (!(typeof require == "undefined")) { /* we are running inside nodejs */
     }
 
     var format   = process.argv[2],
-        filename = process.argv[3];
+        sourceProjection = process.argv[3],
+        targetProjection = process.argv[4],
+        filename = process.argv[5];
 
     function convert(data, format) {
-        var json = parser.parse(data).dumps(format);
+        var json = parser.parse(data).dumps(format, sourceProjection, targetProjection);
         return JSON.stringify(json); /* only for GeoJSON or TopoJSON */
     }
 

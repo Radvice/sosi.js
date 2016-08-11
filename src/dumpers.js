@@ -3,18 +3,20 @@ var SOSI = window.SOSI || {};
 (function (ns, undefined) {
     "use strict";
 
-    function writePoint(point) {
-        var p = [point.x, point.y];
-        if (_.has(point, 'z')) {
-            p.push(point.z);
-        }
-        return p;
-    }
-
     ns.Sosi2GeoJSON = ns.Base.extend({
 
-        initialize: function (sosidata) {
+        initialize: function (sosidata, sourceProjection, targetProjection) {
             this.sosidata = sosidata;
+            this.sourceProjection = sourceProjection;
+            this.targetProjection = targetProjection;
+        },
+
+        writePoint: function (point) {
+            var p = [point.x, point.y];
+            if (_.has(point, 'z')) {
+                p.push(point.z);
+            }
+            return proj4(sourceProjection, targetProjection, p);
         },
 
         dumps: function () {
@@ -46,21 +48,21 @@ var SOSI = window.SOSI || {};
             if (geom instanceof ns.Point) {
                 return {
                     "type": "Point",
-                    "coordinates": writePoint(geom)
+                    "coordinates": this.writePoint(geom)
                 };
             }
 
             if (geom instanceof ns.LineString) {
                 return {
                     "type": "LineString",
-                    "coordinates": _.map(geom.kurve, writePoint)
+                    "coordinates": _.map(geom.kurve, this.writePoint)
                 };
             }
 
             if (geom instanceof ns.Polygon) {
-                var shell = _.map(geom.flate, writePoint);
+                var shell = _.map(geom.flate, this.writePoint);
                 var holes = _.map(geom.holes, function (hole) {
-                    return _.map(hole, writePoint);
+                    return _.map(hole, this.writePoint);
                 });
                 return {
                     "type": "Polygon",
@@ -95,6 +97,14 @@ var SOSI = window.SOSI || {};
 
         initialize: function (sosidata) {
             this.sosidata = sosidata;
+        },
+
+        writePoint: function (point) {
+            var p = [point.x, point.y];
+            if (_.has(point, 'z')) {
+                p.push(point.z);
+            }
+            return p;
         },
 
         dumps: function (name) {
@@ -138,7 +148,7 @@ var SOSI = window.SOSI || {};
                 return {
                     "type": "Point",
                     "properties": properties,
-                    "coordinates": writePoint(point.geometry)
+                    "coordinates": this.writePoint(point.geometry)
                 };
             });
         },
@@ -154,7 +164,7 @@ var SOSI = window.SOSI || {};
                         "properties": properties,
                         "arcs": [index]
                     },
-                    "arc": _.map(line.geometry.kurve, writePoint),
+                    "arc": _.map(line.geometry.kurve, this.writePoint),
                     "index": index
                 };
                 return res;

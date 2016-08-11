@@ -771,18 +771,20 @@ var SOSI = window.SOSI || {};
 (function (ns, undefined) {
     "use strict";
 
-    function writePoint(point) {
-        var p = [point.x, point.y];
-        if (_.has(point, 'z')) {
-            p.push(point.z);
-        }
-        return p;
-    }
-
     ns.Sosi2GeoJSON = ns.Base.extend({
 
-        initialize: function (sosidata) {
+        initialize: function (sosidata, sourceProjection, targetProjection) {
             this.sosidata = sosidata;
+            this.sourceProjection = sourceProjection;
+            this.targetProjection = targetProjection;
+        },
+
+        writePoint: function (point) {
+            var p = [point.x, point.y];
+            if (_.has(point, 'z')) {
+                p.push(point.z);
+            }
+            return proj4(sourceProjection, targetProjection, p);
         },
 
         dumps: function () {
@@ -814,21 +816,21 @@ var SOSI = window.SOSI || {};
             if (geom instanceof ns.Point) {
                 return {
                     "type": "Point",
-                    "coordinates": writePoint(geom)
+                    "coordinates": this.writePoint(geom)
                 };
             }
 
             if (geom instanceof ns.LineString) {
                 return {
                     "type": "LineString",
-                    "coordinates": _.map(geom.kurve, writePoint)
+                    "coordinates": _.map(geom.kurve, this.writePoint)
                 };
             }
 
             if (geom instanceof ns.Polygon) {
-                var shell = _.map(geom.flate, writePoint);
+                var shell = _.map(geom.flate, this.writePoint);
                 var holes = _.map(geom.holes, function (hole) {
-                    return _.map(hole, writePoint);
+                    return _.map(hole, this.writePoint);
                 });
                 return {
                     "type": "Polygon",
@@ -863,6 +865,14 @@ var SOSI = window.SOSI || {};
 
         initialize: function (sosidata) {
             this.sosidata = sosidata;
+        },
+
+        writePoint: function (point) {
+            var p = [point.x, point.y];
+            if (_.has(point, 'z')) {
+                p.push(point.z);
+            }
+            return p;
         },
 
         dumps: function (name) {
@@ -906,7 +916,7 @@ var SOSI = window.SOSI || {};
                 return {
                     "type": "Point",
                     "properties": properties,
-                    "coordinates": writePoint(point.geometry)
+                    "coordinates": this.writePoint(point.geometry)
                 };
             });
         },
@@ -922,7 +932,7 @@ var SOSI = window.SOSI || {};
                         "properties": properties,
                         "arcs": [index]
                     },
-                    "arc": _.map(line.geometry.kurve, writePoint),
+                    "arc": _.map(line.geometry.kurve, this.writePoint),
                     "index": index
                 };
                 return res;
@@ -985,9 +995,9 @@ var SOSI = window.SOSI || {};
             );
         },
 
-        dumps: function (format) {
+        dumps: function (format, sourceProjection, targetProjection) {
             if (dumpTypes[format]) {
-                return new dumpTypes[format](this).dumps(_.rest(arguments));
+                return new dumpTypes[format](this, sourceProjection, targetProjection).dumps(_.rest(arguments, 3));
             }
             throw new Error("Outputformat " + format + " is not supported!");
         }
@@ -1018,9 +1028,10 @@ if (!(typeof require == "undefined")) { /* we are running inside nodejs */
 
     var parser = new SOSI.Parser();
 
-    if (process.argv.length < 4) {
-        util.print("\nusage: nodejs SOSI.js.js format infile.sos > outfile\n\n"
+    if (process.argv.length < 6) {
+        util.print("\nusage: nodejs SOSI.js.js format source_projection target_projection infile.sos > outfile\n\n"
             + "where: format     : one of [" + parser.getFormats() + "]\n"
+            + "       source_projection target_projection : projections passed directly to proj4"
             + "       infile.sos : a file in SOSI format\n"
             + "       outfile    : an output file name, omit for stdout\n\n"
             );
@@ -1028,10 +1039,12 @@ if (!(typeof require == "undefined")) { /* we are running inside nodejs */
     }
 
     var format   = process.argv[2],
-        filename = process.argv[3];
+        sourceProjection = process.argv[3],
+        targetProjection = process.argv[4],
+        filename = process.argv[5];
 
     function convert(data, format) {
-        var json = parser.parse(data).dumps(format);
+        var json = parser.parse(data).dumps(format, sourceProjection, targetProjection);
         return JSON.stringify(json); /* only for GeoJSON or TopoJSON */
     }
 

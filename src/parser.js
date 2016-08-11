@@ -25,9 +25,9 @@ var SOSI = window.SOSI || {};
             );
         },
 
-        dumps: function (format) {
+        dumps: function (format, sourceProjection, targetProjection) {
             if (dumpTypes[format]) {
-                return new dumpTypes[format](this).dumps(_.rest(arguments));
+                return new dumpTypes[format](this, sourceProjection, targetProjection).dumps(_.rest(arguments, 3));
             }
             throw new Error("Outputformat " + format + " is not supported!");
         }
